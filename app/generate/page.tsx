@@ -11,17 +11,20 @@ interface TagInfo {
   value: string;
 }
 
-interface EditedImage {
-  id: string;
-  svg: string;
-  x: number;  
-  y: number;  
+interface Layer {
+  id?: string;
+  name: string;
+  x?: number;  
+  y?: number;
+  width?: number;
+  height?: number;
+  order: number;
 }
 
 interface EditorState {
-  graphic: string;
+  graphic: Layer;
   tags: TagInfo[];
-  images: EditedImage[];
+  images: Layer[];
 }
   
 function parseState(encoded: string): EditorState | null {
@@ -75,42 +78,74 @@ const GeneratePage: React.FC = () => {
     
     const loadAndProcessSVG = async () => {
       try {
-        const baseSvgContent = await loadSvgFromFirebase(state.graphic);
+        const baseSvgContent = await loadSvgFromFirebase(state.graphic.name); // FIREBASE!!
         const parser = new DOMParser();
         const doc = parser.parseFromString(baseSvgContent, "image/svg+xml");
+
         // colors and text
         state.tags.forEach((tag) => {
           if (tag.type === "text") {
             const textCandidates = Array.from(doc.querySelectorAll("text"));
             const candidate = findClosestElement(textCandidates, tag.x, tag.y);
             if (candidate) {
+              candidate.innerHTML = "";
               candidate.textContent = tag.value;
             }
           } else if (tag.type === "color") {
-            const fillCandidates = Array.from(doc.querySelectorAll("[fill]"));
+            let fillCandidates = Array.from(doc.querySelectorAll("[fill]"));
+            if (fillCandidates.length === 0) {
+              fillCandidates = Array.from(doc.querySelectorAll("path, rect, circle, polygon, polyline"));
+            }
+
             const candidate = findClosestElement(fillCandidates, tag.x, tag.y);
             if (candidate) {
-              candidate.setAttribute("fill", tag.value);
+              if (candidate.hasAttribute("fill")) {
+                candidate.setAttribute("fill", tag.value);
+              } 
             }
           }
         });
 
-        const candidateGroups = Array.from(doc.querySelectorAll("g"));
-        const insertionParent = candidateGroups.length > 0 ? candidateGroups : [doc.documentElement];
-
         // additional images
-        for (const img of state.images) {
-          const imageSvgContent = await loadSvgFromFirebase(img.svg);
+        const layers: Layer[] = [...state.images].sort((a, b) => a.order - b.order);
+        // const candidateGroups = Array.from(doc.querySelectorAll("g"));
+        // const insertionParent = candidateGroups.length > 0 ? candidateGroups : [doc.documentElement];
+
+        const additionalGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
+        additionalGroup.setAttribute("id", "additionalImages");
+        for (const img of layers) {
+          const imageSvgContent = await loadSvgFromFirebase(img.name); // FIREBASE!!
           const imageDoc = parser.parseFromString(imageSvgContent, "image/svg+xml");
           const imageRoot = imageDoc.documentElement;
+
+          let scaleX = 1;
+          let scaleY = 1;
+          if (img.width && img.height) {
+            const origWidthAttr = imageRoot.getAttribute("width");
+            const origHeightAttr = imageRoot.getAttribute("height");
+            if (origWidthAttr && origHeightAttr) {
+              const origWidth = parseFloat(origWidthAttr);
+              const origHeight = parseFloat(origHeightAttr);
+              if (origWidth && origHeight) {
+                scaleX = img.width / origWidth;
+                scaleY = img.height / origHeight;
+              }
+            }
+          }
+
           const g = doc.createElementNS("http://www.w3.org/2000/svg", "g");
-          g.setAttribute("transform", `translate(${img.x}, ${img.y})`);
+          g.setAttribute("transform", `translate(${img.x ?? 0}, ${img.y ?? 0}) scale(${scaleX}, ${scaleY})`);
+
           Array.from(imageRoot.childNodes).forEach((child) => {
             g.appendChild(doc.importNode(child, true));
           });
-          const insertionPoint = findClosestElement(insertionParent, img.x, img.y) || doc.documentElement;
-          insertionPoint.appendChild(g);
+
+          additionalGroup.appendChild(g);
+          // const insertionPoint = findClosestElement(insertionParent, img.x ?? 0, img.y ?? 0) || doc.documentElement;
+          // insertionPoint.appendChild(g);
         }
+
+        doc.documentElement.appendChild(additionalGroup);
 
         const serializer = new XMLSerializer();
         const updatedSVG = serializer.serializeToString(doc);
