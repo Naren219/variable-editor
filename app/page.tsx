@@ -258,7 +258,7 @@ const FabricEditor: React.FC = () => {
     }
 
     const tags = taggedVariables.map((tv) => ({
-      id: tv.id.slice(0, 5) ?? "",
+      id: tv.id!.slice(0, 5) ?? "",
       type: tv.type,
       value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
       x: roundTwo(tv.x),
