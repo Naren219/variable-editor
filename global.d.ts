@@ -12,7 +12,7 @@ declare global {
     type: "text" | "color";
     x: number;
     y: number;
-    value: string;
+    value?: string;
   }
   
   interface Layer {
