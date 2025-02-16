@@ -24,31 +24,6 @@ interface SelectedObject {
   value: string;
 }
 
-interface TaggedVariable {
-  id?: string;
-  type: "text" | "color";
-  x: number;
-  y: number;
-  value: string;
-}
-
-interface Layer {
-  id?: string;
-  file: string;
-  variableName?: string;
-  x?: number;  
-  y?: number;
-  width?: number;
-  height?: number;
-  order: number;
-}
-
-interface ExportSchema {
-  graphic: Layer;
-  tags: TaggedVariable[];
-  images: Layer[];
-}
-
 const FabricEditor: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
