@@ -258,7 +258,7 @@ const FabricEditor: React.FC = () => {
     }
 
     const tags = taggedVariables.map((tv) => ({
-      id: tv.id.slice(0, 5),
+      id: tv.id.slice(0, 5) ?? "",
       type: tv.type,
       value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
       x: roundTwo(tv.x),
@@ -361,11 +361,11 @@ const FabricEditor: React.FC = () => {
             <ul className="space-y-2">
               {taggedVariables.map((variable) => (
                 <li
-                  key={variable.id+variable.type}
+                  key={(variable.id ?? "")+variable.type}
                   className="p-3 bg-gray-100 rounded-lg shadow-sm flex flex-col"
                 >
                   <span className="text-sm font-medium text-gray-700">
-                    <span className="font-semibold">ID:</span> {variable.id}
+                    <span className="font-semibold">ID:</span> {variable.id ?? ""}
                   </span>
                   <span className="text-sm text-gray-600">
                     <span className="font-semibold">Type:</span> {variable.type}
