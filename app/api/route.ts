@@ -9,7 +9,8 @@ export async function GET(req: Request) {
   try {
     const browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      viewport: { width: 1920, height: 1080, deviceScaleFactor: 2 },
+      viewport: { width: 1920, height: 1080 },
+      deviceScaleFactor: 2,
     });
     const page = await context.newPage();
     await page.goto(targetUrl, { waitUntil: 'networkidle' });
