@@ -73,7 +73,7 @@ const GeneratePage: React.FC = () => {
             const candidate = findClosestElement(textCandidates, tag.x, tag.y);
             if (candidate) {
               candidate.innerHTML = "";
-              candidate.textContent = tag.value;
+              candidate.textContent = tag.value ?? "";
             }
           } else if (tag.type === "color") {
             let fillCandidates = Array.from(doc.querySelectorAll("[fill]"));
