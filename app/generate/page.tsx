@@ -85,10 +85,10 @@ const GeneratePage: React.FC = () => {
             
             if (candidate) {
               if (candidate.hasAttribute("fill")) {
-                candidate.setAttribute("fill", tag.value);
+                candidate.setAttribute("fill", tag.value ?? "");
               } else if (candidate.getAttribute("style")) {
                 let styleStr = candidate.getAttribute("style") || "";
-                styleStr = styleStr.replace(/fill\s*:\s*[^;]+/, `fill: ${tag.value}`);
+                styleStr = styleStr.replace(/fill\s*:\s*[^;]+/, `fill: ${tag.value ?? ""}`);
                 candidate.setAttribute("style", styleStr);
               }
             }
