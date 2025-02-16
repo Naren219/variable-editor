@@ -6,35 +6,11 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ref, getDownloadURL } from "firebase/storage";
 import { storage } from "../firebase";
-
-interface TagInfo {
-  type: "text" | "color";
-  x: number;
-  y: number;
-  value: string;
-}
-
-interface Layer {
-  id?: string;
-  file: string;
-  x?: number;  
-  y?: number;
-  variableName?: string;
-  width?: number;
-  height?: number;
-  order: number;
-}
-
-interface EditorState {
-  graphic: Layer;
-  tags: TagInfo[];
-  images: Layer[];
-}
   
-function parseState(encoded: string): EditorState | null {
+function parseState(encoded: string): ExportSchema | null {
   try {
     const decoded = decodeURIComponent(encoded)
-    return JSON.parse(decoded) as EditorState;
+    return JSON.parse(decoded) as ExportSchema;
   } catch (error) {
     console.error("Error parsing state:", error);
     return null;
@@ -85,6 +61,10 @@ const GeneratePage: React.FC = () => {
         const baseSvgContent = await loadSvgFromFirebase(state.graphic.file); // FIREBASE!!
         const parser = new DOMParser();
         const doc = parser.parseFromString(baseSvgContent, "image/svg+xml");
+        if (state.graphic.width && state.graphic.height) {
+          doc.documentElement.setAttribute("width", state.graphic.width.toString());
+          doc.documentElement.setAttribute("height", state.graphic.height.toString());
+        }
 
         // colors and text
         state.tags.forEach((tag) => {
@@ -117,8 +97,6 @@ const GeneratePage: React.FC = () => {
 
         // additional images
         const layers: Layer[] = [...state.images].sort((a, b) => a.order - b.order);
-        // const candidateGroups = Array.from(doc.querySelectorAll("g"));
-        // const insertionParent = candidateGroups.length > 0 ? candidateGroups : [doc.documentElement];
 
         const additionalGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
         additionalGroup.setAttribute("id", "additionalImages");
@@ -130,15 +108,32 @@ const GeneratePage: React.FC = () => {
           let scaleX = 1;
           let scaleY = 1;
           if (img.width && img.height) {
+            let origWidth = 0;
+            let origHeight = 0;
+            // First try to get explicit width/height attributes.
             const origWidthAttr = imageRoot.getAttribute("width");
             const origHeightAttr = imageRoot.getAttribute("height");
             if (origWidthAttr && origHeightAttr) {
-              const origWidth = parseFloat(origWidthAttr);
-              const origHeight = parseFloat(origHeightAttr);
-              if (origWidth && origHeight) {
-                scaleX = img.width / origWidth;
-                scaleY = img.height / origHeight;
+              origWidth = parseFloat(origWidthAttr);
+              origHeight = parseFloat(origHeightAttr);
+            }
+            // Fallback: if width/height attributes are missing, try viewBox.
+            if (!origWidth || !origHeight) {
+              const viewBox = imageRoot.getAttribute("viewBox");
+              if (viewBox) {
+                const parts = viewBox.split(/\s+|,/);
+                if (parts.length === 4) {
+                  origWidth = parseFloat(parts[2]);
+                  origHeight = parseFloat(parts[3]);
+                }
               }
+            }
+            if (origWidth && origHeight) {
+              scaleX = img.width / origWidth;
+              scaleY = img.height / origHeight;
+            } else {
+              scaleX = 1;
+              scaleY = 1;
             }
           }
 
@@ -150,8 +145,6 @@ const GeneratePage: React.FC = () => {
           });
 
           additionalGroup.appendChild(g);
-          // const insertionPoint = findClosestElement(insertionParent, img.x ?? 0, img.y ?? 0) || doc.documentElement;
-          // insertionPoint.appendChild(g);
         }
 
         doc.documentElement.appendChild(additionalGroup);
@@ -169,11 +162,11 @@ const GeneratePage: React.FC = () => {
 
   return (
     <Suspense fallback={<p>Loading...</p>}>
-    <div style={{ padding: "20px" }}>
+    <div>
       {finalSVG ? (
         <div
           style={{
-            padding: "10px",
+            padding: "0px",
             background: "#fff",
             maxWidth: "800px",
             margin: "0 auto",

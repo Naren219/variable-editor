@@ -14,6 +14,10 @@ const eslintConfig = [
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "no-unwrapped-client-hooks": {
+        "severity": "error",
+        "hooks": ["useSearchParams", "usePathname"]
+      }
     },
   },
 ];

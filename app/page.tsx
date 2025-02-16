@@ -25,10 +25,11 @@ interface SelectedObject {
 }
 
 interface TaggedVariable {
-  id: string;
+  id?: string;
   type: "text" | "color";
   x: number;
   y: number;
+  value: string;
 }
 
 interface Layer {
@@ -44,13 +45,8 @@ interface Layer {
 
 interface ExportSchema {
   graphic: Layer;
-  tags: Array<{
-    type: "text" | "color";
-    value: string;
-    x: number;
-    y: number;
-  }>;
-  images: Array<Layer>;
+  tags: TaggedVariable[];
+  images: Layer[];
 }
 
 const FabricEditor: React.FC = () => {
