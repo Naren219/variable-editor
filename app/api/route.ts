@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error('Error generating image with Puppeteer:', error);
+    console.error('Error generating image with Playwright:', error);
     return NextResponse.json(
       { error: 'Error generating image' },
       { status: 500 }
