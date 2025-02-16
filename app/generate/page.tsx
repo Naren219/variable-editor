@@ -1,5 +1,5 @@
 "use client"
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ref, getDownloadURL } from "firebase/storage";
 import { storage } from "../firebase";
@@ -165,6 +165,7 @@ const GeneratePage: React.FC = () => {
   }, [searchParams]);
 
   return (
+    <Suspense fallback={<p>Loading...</p>}>
     <div style={{ padding: "20px" }}>
       {finalSVG ? (
         <div
@@ -180,6 +181,7 @@ const GeneratePage: React.FC = () => {
         <p>Loading graphic...</p>
       )}
     </div>
+    </Suspense>
   );
 };
 
