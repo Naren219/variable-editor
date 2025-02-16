@@ -13,9 +13,10 @@ interface TagInfo {
 
 interface Layer {
   id?: string;
-  name: string;
+  file: string;
   x?: number;  
   y?: number;
+  variableName?: string;
   width?: number;
   height?: number;
   order: number;
@@ -78,7 +79,7 @@ const GeneratePage: React.FC = () => {
     
     const loadAndProcessSVG = async () => {
       try {
-        const baseSvgContent = await loadSvgFromFirebase(state.graphic.name); // FIREBASE!!
+        const baseSvgContent = await loadSvgFromFirebase(state.graphic.file); // FIREBASE!!
         const parser = new DOMParser();
         const doc = parser.parseFromString(baseSvgContent, "image/svg+xml");
 
@@ -98,10 +99,15 @@ const GeneratePage: React.FC = () => {
             }
 
             const candidate = findClosestElement(fillCandidates, tag.x, tag.y);
+            
             if (candidate) {
               if (candidate.hasAttribute("fill")) {
                 candidate.setAttribute("fill", tag.value);
-              } 
+              } else if (candidate.getAttribute("style")) {
+                let styleStr = candidate.getAttribute("style") || "";
+                styleStr = styleStr.replace(/fill\s*:\s*[^;]+/, `fill: ${tag.value}`);
+                candidate.setAttribute("style", styleStr);
+              }
             }
           }
         });
@@ -114,7 +120,7 @@ const GeneratePage: React.FC = () => {
         const additionalGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
         additionalGroup.setAttribute("id", "additionalImages");
         for (const img of layers) {
-          const imageSvgContent = await loadSvgFromFirebase(img.name); // FIREBASE!!
+          const imageSvgContent = await loadSvgFromFirebase(img.file); // FIREBASE!!
           const imageDoc = parser.parseFromString(imageSvgContent, "image/svg+xml");
           const imageRoot = imageDoc.documentElement;
 

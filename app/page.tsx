@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { v4 as uuidv4 } from "uuid";
+import Head from "next/head";
 
 interface UploadItem {
   id: string;
@@ -32,7 +33,8 @@ interface TaggedVariable {
 
 interface Layer {
   id?: string;
-  name: string;
+  file: string;
+  variableName?: string;
   x?: number;  
   y?: number;
   width?: number;
@@ -58,6 +60,7 @@ const FabricEditor: React.FC = () => {
   const [projectId, setProjectId] = useState<string>("MyProject");
   const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
   const [taggedVariables, setTaggedVariables] = useState<TaggedVariable[]>([]);
+  const [orderMap, setOrderMap] = useState<{ [key: string]: number }>({});
   const uploadsRef = useRef<UploadItem[]>([]);
 
   useEffect(() => {
@@ -114,6 +117,7 @@ const FabricEditor: React.FC = () => {
       setSelectedObject(null);
     });
 
+    // Updating info for the uploads
     fabricCanvas.on("object:modified", (e) => {
       const modifiedObj = e.target;
       if (!modifiedObj) return;
@@ -140,32 +144,30 @@ const FabricEditor: React.FC = () => {
           return item;
         })
       );
+      getUploadOrderFromCanvas(fabricCanvas)
     });
     return () => {
       fabricCanvas.dispose();
     };
   }, []);
 
-  const roundTwo = (value: number): number => {
-    return Math.floor(value * 100) / 100;
-  };
+  const roundTwo = (value: number): number => Math.floor(value * 100) / 100;
 
   // compute stacking order from canvas
-  const getUploadOrderFromCanvas = (): { [key: string]: number } => {
-    const orderMap: { [key: string]: number } = {};
-    if (canvas) {
-      const objs = canvas.getObjects();
-      objs.forEach((obj, index) => {
-        let id = (obj as any).customId;
-        if (!id && obj.group) {
-          id = (obj.group as any).customId;
-        }
-        if (id) {
-          orderMap[id] = index;
-        }
-      });
-    }
-    return orderMap;
+  const getUploadOrderFromCanvas = (fabricCanvas: fabric.Canvas) => {
+    const map: { [key: string]: number } = {};
+    const objs = fabricCanvas.getObjects();
+    objs.forEach((obj, index) => {
+      let id = (obj as any).customId;
+      if (!id && obj.group) {
+        id = (obj.group as any).customId;
+      }
+      if (id) {
+        map[id] = index;
+      }
+    });
+    
+    setOrderMap(map)
   };
 
   const tagSelectedObject = () => {
@@ -194,7 +196,7 @@ const FabricEditor: React.FC = () => {
         if (obj.type === "text") {
           const objOptions = { ...obj.toObject() };
           delete objOptions.type;
-          const iText = new fabric.IText((obj as fabric.Text).text || "", objOptions);
+          const iText = new fabric.IText((obj as fabric.Text).text || "", objOptions); // EZ to handle with text
           return iText;
         }
         return obj;
@@ -232,8 +234,8 @@ const FabricEditor: React.FC = () => {
             name: file.name,
             type: "image",
             object: svg,
-            left: Math.floor(svg.left * 100) / 100,
-            top: Math.floor(svg.top * 100) / 100,
+            left: roundTwo(svg.left),
+            top: roundTwo(svg.top),
             order: prev.length,
           },
         ]);
@@ -242,11 +244,12 @@ const FabricEditor: React.FC = () => {
     }
   };
 
+  // Update editor view
   const handleEditorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedObject || !canvas) return;
     const newValue = e.target.value;
     if (selectedObject.type === "text") {
-      if (selectedObject.object.type === "i-text") {
+      if (selectedObject.object.type === "i-text") { // All text should be of type IText!
         (selectedObject.object as fabric.IText).set({ text: newValue });
       }
     } else {
@@ -273,13 +276,11 @@ const FabricEditor: React.FC = () => {
   };
 
   const buildExportSchema = (): ExportSchema => {
-    const orderMap = getUploadOrderFromCanvas();
-
     const mainGraphic = uploads.find((item) => item.type === "graphic");
     const graphic: Layer = {
-      name: mainGraphic ? mainGraphic.name : "",
-      x: mainGraphic ? mainGraphic.left : 0,
-      y: mainGraphic ? mainGraphic.top : 0,
+      file: mainGraphic ? mainGraphic.name : "",
+      x: mainGraphic ? roundTwo(mainGraphic.left) : 0,
+      y: mainGraphic ? roundTwo(mainGraphic.top) : 0,
       width: mainGraphic ? mainGraphic.width : 0,
       height: mainGraphic ? mainGraphic.height : 0,
       order: mainGraphic ? orderMap[mainGraphic.id] : 0,
@@ -289,8 +290,8 @@ const FabricEditor: React.FC = () => {
       id: tv.id.slice(0, 5),
       type: tv.type,
       value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
-      x: tv.x,
-      y: tv.y,
+      x: roundTwo(tv.x),
+      y: roundTwo(tv.y),
     }));
 
     const images = uploads
@@ -302,14 +303,14 @@ const FabricEditor: React.FC = () => {
       )
       .map((item) => {
         const imageLayer: Layer = {
-          id: item.id.slice(0, 5),
-          name: item.name,
-          x: item.left,
-          y: item.top,
+          variableName: item.variableName,
+          file: item.name,
+          x: roundTwo(item.left),
+          y: roundTwo(item.top),
           order: orderMap[item.id] ?? 0,
         };
-        if (item.width) imageLayer.width = item.width
-        if (item.height) imageLayer.height = item.height;
+        if (item.width) imageLayer.width = roundTwo(item.width)
+        if (item.height) imageLayer.height = roundTwo(item.height);
         return imageLayer;
       });
 
@@ -325,10 +326,13 @@ const FabricEditor: React.FC = () => {
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
+      <Head>
+        <title>Graphic Editor</title>
+      </Head>
       {/* Sidebar: File List and Upload */}
       <div
         style={{
-          width: "250px",
+          width: "300px",
           borderRight: "1px solid #ccc",
           padding: "10px",
           overflowY: "auto",
