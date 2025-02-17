@@ -48,6 +48,9 @@ export async function POST(req: Request) {
     const page = await context.newPage();
     
     await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 15000 });
+    await page.waitForSelector('#finalGraphic');
+    const element = await page.$('#finalGraphic');
+    
     const screenshotBuffer = await page.screenshot({ type: 'png' });
     await browser.close();
 

@@ -246,6 +246,12 @@ const FabricEditor: React.FC = () => {
     );
   };
 
+  const updateTaggedVariableName = (id: string, type: "text" | "color", newVarName: string) => {
+    setTaggedVariables((prev) =>
+      prev.map((v) => (v.id === id && v.type === type ? { ...v, variableName: newVarName } : v))
+    );
+  };
+
   const buildExportSchema = (): ExportSchema => {
     const mainGraphic = uploads.find((item) => item.type === "graphic");
     const graphic: Layer = {
@@ -263,6 +269,7 @@ const FabricEditor: React.FC = () => {
       value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
       x: roundTwo(tv.x),
       y: roundTwo(tv.y),
+      variableName: tv.variableName,
     }));
 
     const images = uploads
@@ -370,6 +377,12 @@ const FabricEditor: React.FC = () => {
                   <span className="text-sm text-gray-600">
                     <span className="font-semibold">Type:</span> {variable.type}
                   </span>
+                  <input
+                    type="text"
+                    placeholder="Variable Name"
+                    value={variable.variableName ?? ""}
+                    onChange={(e) => updateTaggedVariableName(variable.id, variable.type, e.target.value)}
+                  />
                 </li>
               ))}
             </ul>
