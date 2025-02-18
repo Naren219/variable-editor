@@ -154,6 +154,7 @@ const FabricEditor: React.FC = () => {
       type: selectedObject.type,
       x: Math.floor(left * 100) / 100,
       y: Math.floor(top * 100) / 100,
+      variableName: "",
     };
     
     setTaggedVariables((prev) => [...prev, newTag]);
