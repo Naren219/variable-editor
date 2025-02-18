@@ -1,7 +1,7 @@
 [
     {
-      "origin": ["http://localhost:3000"],
-      "method": ["GET", "HEAD"],
+      "origin": ["http://localhost:3000", "https://variable-editor.vercel.app"],
+      "method": ["GET", "POST", "HEAD"],
       "maxAgeSeconds": 3600
     }
   ]
