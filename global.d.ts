@@ -13,7 +13,7 @@ declare global {
     x: number;
     y: number;
     value?: string;
-    variableName?: string;
+    variableName: string;
   }
   
   interface Layer {

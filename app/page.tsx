@@ -381,7 +381,7 @@ const FabricEditor: React.FC = () => {
                     type="text"
                     placeholder="Variable Name"
                     value={variable.variableName ?? ""}
-                    onChange={(e) => updateTaggedVariableName(variable.id, variable.type, e.target.value)}
+                    onChange={(e) => updateTaggedVariableName(variable.id!, variable.type!, e.target.value)}
                   />
                 </li>
               ))}
