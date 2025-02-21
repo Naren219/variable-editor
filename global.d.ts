@@ -8,10 +8,12 @@ declare global {
   }
 
   interface TaggedVariable {
-    id?: string;
+    id: string;
+    fabricId: string;
     type: "text" | "color";
-    x: number;
-    y: number;
+    // x: number;
+    // y: number;
+    index: number;
     value?: string;
     variableName: string;
   }

@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { v4 as uuidv4 } from "uuid";
 import Head from "next/head";
+import TaggedVariableItem from "./UIComponents";
+import './fabricOverrides';
 
 interface UploadItem {
   id: string;
@@ -60,16 +62,17 @@ const FabricEditor: React.FC = () => {
       if (!targetCustomId && target.group) {
         targetCustomId = (target.group as any).customId;
       }
+      let targetGroupCustomId = (target.group as any).customId;
       // Find a graphic upload that matches the target's customId.
       const matchedUpload = uploadsRef.current.find(
-        (u) => u.type === "graphic" && u.id === targetCustomId
+        (u) => u.type === "graphic" && u.id === targetGroupCustomId
       );
       
       if (!matchedUpload) {
         setSelectedObject(null);
         return;
       }
-
+      
       const id = targetCustomId || uuidv4();
       const value =
         target.type === "i-text"
@@ -142,22 +145,25 @@ const FabricEditor: React.FC = () => {
   };
 
   const tagSelectedObject = () => {
-    if (!selectedObject) return;
-    const { left, top } = selectedObject.object.getBoundingRect();
-    const exists = taggedVariables.find(
-      (v) => v.id === selectedObject.id && v.type === selectedObject.type
-    );
-    
-    if (exists) return;
-    const newTag: TaggedVariable = {
-      id: selectedObject.id,
-      type: selectedObject.type,
-      x: Math.floor(left * 100) / 100,
-      y: Math.floor(top * 100) / 100,
-      variableName: "",
-    };
-    
-    setTaggedVariables((prev) => [...prev, newTag]);
+    if (!selectedObject || !canvas) return;
+
+    const svgString = canvas.toSVG();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgString, "image/svg+xml");
+    const candidates = Array.from(doc.querySelectorAll("text[data-fabricid]")) as SVGGraphicsElement[];
+
+    const index = candidates.findIndex((el) => el.getAttribute("data-fabricid") === selectedObject.id);
+
+    if (index !== -1) {
+      const newTag: TaggedVariable = {
+        id: uuidv4(),
+        fabricId: selectedObject.id,
+        type: selectedObject.type,
+        variableName: "",
+        index
+      };
+      setTaggedVariables((prev) => [...prev, newTag]);
+    }
   };
 
   async function loadSVG(url: string, id: any): Promise<fabric.FabricObject> {
@@ -176,6 +182,18 @@ const FabricEditor: React.FC = () => {
 
       const group = fabric.util.groupSVGElements(convertedObjects, options);
       (group as any).customId = id
+      group.set("id", id);
+
+      if ((group as fabric.Group).getObjects) {
+        (group as fabric.Group).getObjects().forEach((obj) => {
+          if ((obj.type === "i-text" || obj.type === "text") && !obj.get("id")) {
+            const uniqueId = uuidv4();
+            obj.set("fabricId", uniqueId);
+            (obj as any).customId = uniqueId;
+          }
+        });
+      }
+      
       return group;
     } catch (error) {
       console.error('SVG loading failed:', error);
@@ -265,12 +283,12 @@ const FabricEditor: React.FC = () => {
     }
 
     const tags = taggedVariables.map((tv) => ({
-      id: tv.id!.slice(0, 5) ?? "",
+      id: tv.id.slice(0, 5),
+      fabricId: tv.fabricId.slice(0, 5),
       type: tv.type,
       value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
-      x: roundTwo(tv.x),
-      y: roundTwo(tv.y),
-      variableName: tv.variableName,
+      index: tv.index,
+      variableName: tv.variableName ?? "",
     }));
 
     const images = uploads
@@ -367,25 +385,23 @@ const FabricEditor: React.FC = () => {
             <p className="text-gray-500">No variables tagged yet.</p>
           ) : (
             <ul className="space-y-2">
-              {taggedVariables.map((variable) => (
-                <li
-                  key={(variable.id ?? "")+variable.type}
-                  className="p-3 bg-gray-100 rounded-lg shadow-sm flex flex-col"
-                >
-                  <span className="text-sm font-medium text-gray-700">
-                    <span className="font-semibold">ID:</span> {variable.id ?? ""}
-                  </span>
-                  <span className="text-sm text-gray-600">
-                    <span className="font-semibold">Type:</span> {variable.type}
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Variable Name"
-                    value={variable.variableName ?? ""}
-                    onChange={(e) => updateTaggedVariableName(variable.id!, variable.type!, e.target.value)}
+              {taggedVariables.map((variable) => {
+                // Define a helper function or mapping for background colors
+                const bgColor =
+                  variable.type === "text"
+                    ? "bg-blue-100"
+                    : variable.type === "color"
+                    ? "bg-green-100"
+                    : "bg-gray-100"; // default color
+
+                return (
+                  <TaggedVariableItem
+                    key={(variable.id ?? "") + variable.type}
+                    variable={variable}
+                    updateTaggedVariableName={updateTaggedVariableName}
                   />
-                </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>
