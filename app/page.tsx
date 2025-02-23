@@ -4,12 +4,13 @@ import React, { useEffect, useRef, useState } from "react";
 import * as fabric from "fabric";
 import { v4 as uuidv4 } from "uuid";
 import Head from "next/head";
-import TaggedVariableItem from "./UIComponents";
+import TaggedVariableItem from "./components/TaggedVariableItem";
 import './fabricOverrides';
 import { db } from "./firebase";
 import { doc, setDoc } from "firebase/firestore";
+import UploadItemCard from "./components/UploadItemCard";
 
-interface UploadItem {
+export interface UploadItem {
   id: string;
   name: string;
   type: "graphic" | "image";
@@ -46,7 +47,7 @@ const FabricEditor: React.FC = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
     const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-      width: 600,
+      width: 800,
       height: 600,
       backgroundColor: "#fff",
     });
@@ -70,6 +71,7 @@ const FabricEditor: React.FC = () => {
         for (const grp of groups) {
           if (grp.contains(target)) {
             groupId = (grp as any).customId;
+            console.log("Found group ID:", groupId);
             
             break;
           }
@@ -130,34 +132,8 @@ const FabricEditor: React.FC = () => {
           return item;
         })
       );
-      // getUploadOrderFromCanvas(fabricCanvas)
+      getUploadOrderFromCanvas(fabricCanvas)
     });
-
-    fabricCanvas.on("object:moving", (e) => {
-      const movingObj = e.target;
-      if (!movingObj) return;
-      
-      const objects = fabricCanvas.getObjects();
-      // Check each object for an overlap with the moving object.
-      for (let i = 0; i < objects.length; i++) {
-        const obj = objects[i];
-        if (obj === movingObj) continue;
-        if (movingObj.intersectsWithObject(obj)) {
-          // Manually reorder: remove movingObj and push it to the end.
-          const index = objects.indexOf(movingObj);
-          if (index > -1) {
-            objects.splice(index, 1);
-            objects.push(movingObj);
-            // Update the canvas display after reordering.
-            fabricCanvas.renderAll();
-          }
-          break; // Once reordered, exit the loop.
-        }
-      }
-      // Update your state order map.
-      getUploadOrderFromCanvas(fabricCanvas);
-    });
-
     return () => {
       fabricCanvas.dispose();
     };
@@ -178,7 +154,8 @@ const FabricEditor: React.FC = () => {
         map[id] = index;
       }
     });
-    setOrderMap(map);
+    
+    setOrderMap(map)
   };
 
   const tagSelectedObject = () => {
@@ -290,6 +267,15 @@ const FabricEditor: React.FC = () => {
     }
   };
 
+  const deleteUploadItem = (id: string) => {
+    const itemToDelete = uploads.find((item) => item.id === id);
+    if (itemToDelete && canvas) {
+      canvas.remove(itemToDelete.object);
+      canvas.renderAll();
+    }
+    setUploads((prev) => prev.filter((item) => item.id !== id));
+  };
+
   // Update editor view
   const handleEditorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedObject || !canvas) return;
@@ -329,6 +315,7 @@ const FabricEditor: React.FC = () => {
 
   const buildExportSchema = (): ExportSchema => {
     const mainGraphic = uploads.find((item) => item.type === "graphic");
+    console.log("width", mainGraphic?.width, "height", mainGraphic?.height);
     
     const graphic: Layer = {
       fileName: mainGraphic ? mainGraphic.name : "",
@@ -338,6 +325,8 @@ const FabricEditor: React.FC = () => {
       ...(mainGraphic?.width !== undefined ? { width: roundTwo(mainGraphic.width) } : {}),
       ...(mainGraphic?.height !== undefined ? { height: roundTwo(mainGraphic.height) } : {}),
     }
+    console.log(graphic);
+    
 
     const tags = taggedVariables.map((tv) => {
       const baseTag = {
@@ -360,6 +349,7 @@ const FabricEditor: React.FC = () => {
         };
       }
     });
+    
 
     const images = uploads
       .filter(
@@ -370,7 +360,8 @@ const FabricEditor: React.FC = () => {
       )
       .map((item) => {
         const imageLayer: Layer = {
-          fileName: item.variableName ?? `image_${uploads.indexOf(item)}`,
+          variableName: item.variableName,
+          fileName: item.name,
           x: roundTwo(item.left),
           y: roundTwo(item.top),
           order: orderMap[item.id] ?? 0,
@@ -395,11 +386,11 @@ const FabricEditor: React.FC = () => {
   }
 
   function buildExportUrl(projectId: string, schema: ExportSchema): string {
-    const baseUrl = "https://variable-editor.vercel.app/api" //"http://localhost:3000/api";
+    const baseUrl = "http://localhost:3000/generate";
     const params = new URLSearchParams();
     
     params.append("projectId", projectId);
-    params.append("graphicName", "graphicName");
+    
     taggedVariables.forEach((tag) => {
       if (tag.variableName && tag.variableName.trim()) {
         params.append(tag.variableName, tag.variableName);
@@ -407,8 +398,8 @@ const FabricEditor: React.FC = () => {
     })
     
     schema.images.forEach((img) => {
-      if (img.fileName && img.fileName.trim()) {
-        params.append(img.fileName, img.fileName);
+      if (img.variableName && img.variableName.trim()) {
+        params.append(img.variableName, `${img.variableName}`);
       }
     });
     
@@ -435,43 +426,13 @@ const FabricEditor: React.FC = () => {
         <input type="file" multiple accept=".svg,image/*" onChange={handleFileUpload} />
         <ul style={{ listStyle: "none", padding: 5 }}>
           {uploads.map((item) => (
-            <li
+            <UploadItemCard
               key={item.id}
-              style={{
-                marginBottom: "10px",
-                padding: "5px",
-                border: "1px solid #ddd",
-                background: "#fff",
-              }}
-            >
-              <div>
-                <strong>{item.name}</strong>
-              </div>
-              {item.type === "image" && (
-                <div style={{ marginTop: "5px" }}>
-                  <button
-                      onClick={() => handleTagAsGraphic(item.id)}
-                      style={{ fontSize: "12px", marginBottom: "5px" }}
-                    >
-                      Tag as Graphic
-                  </button>
-                  <input
-                    type="text"
-                    placeholder="Variable name (will update JSON)"
-                    value={item.variableName || ""}
-                    onChange={(e) =>
-                      handleVariableNameChange(item.id, e.target.value)
-                    }
-                    style={{ fontSize: "12px", width: "100%" }}
-                  />
-                </div>
-              )}
-              {item.type === "graphic" && (
-                <div style={{ marginTop: "5px", color: "blue", fontWeight: "bold" }}>
-                  Graphic (Editable)
-                </div>
-              )}
-            </li>
+              item={item}
+              handleTagAsGraphic={handleTagAsGraphic}
+              handleVariableNameChange={handleVariableNameChange}
+              deleteUploadItem={deleteUploadItem}
+            />
           ))}
         </ul>
         {/* Display the list of tagged variables */}
@@ -513,7 +474,7 @@ const FabricEditor: React.FC = () => {
       {/* Right Panel: Export URL and Editing Panel */}
       <div
         style={{
-          width: "400px",
+          width: "350px",
           borderLeft: "1px solid #ccc",
           padding: "10px",
           overflowY: "auto",
@@ -611,7 +572,7 @@ const FabricEditor: React.FC = () => {
                   flex: "1",
                   padding: "8px 12px",
                   backgroundColor: taggedVariables.some(
-                  (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
+                    (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
                   )
                   ? "#ccc"
                   : "#0070f3",
@@ -619,7 +580,7 @@ const FabricEditor: React.FC = () => {
                   border: "none",
                   borderRadius: "4px",
                   cursor: taggedVariables.some(
-                  (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
+                    (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
                   )
                   ? "default"
                   : "pointer",
@@ -644,8 +605,6 @@ const FabricEditor: React.FC = () => {
             </div>
           </div>
         )}
-
-        
       </div>
     </div>
   );
