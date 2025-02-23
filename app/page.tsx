@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from "uuid";
 import Head from "next/head";
 import TaggedVariableItem from "./UIComponents";
 import './fabricOverrides';
+import { db } from "./firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 interface UploadItem {
   id: string;
@@ -30,10 +32,11 @@ const FabricEditor: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvas, setCanvas] = useState<fabric.Canvas | null>(null);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
-  const [projectId, setProjectId] = useState<string>("MyProject");
+  const [projectId, setProjectId] = useState<string>("");
   const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
   const [taggedVariables, setTaggedVariables] = useState<TaggedVariable[]>([]);
   const [orderMap, setOrderMap] = useState<{ [key: string]: number }>({});
+  const [sent, setSent] = useState<boolean>(false)
   const uploadsRef = useRef<UploadItem[]>([]);
 
   useEffect(() => {
@@ -43,7 +46,7 @@ const FabricEditor: React.FC = () => {
   useEffect(() => {
     if (!canvasRef.current) return;
     const fabricCanvas = new fabric.Canvas(canvasRef.current, {
-      width: 800,
+      width: 600,
       height: 600,
       backgroundColor: "#fff",
     });
@@ -58,14 +61,23 @@ const FabricEditor: React.FC = () => {
       if (e.subTargets && e.subTargets.length > 0) {
         target = e.subTargets[0];
       }
-      let targetCustomId = (target as any).customId;
-      if (!targetCustomId && target.group) {
-        targetCustomId = (target.group as any).customId;
+
+      let groupId: string | undefined = target.group ? (target.group as any).customId : undefined;
+
+      // If target.group is not available, try to find the group manually.
+      if (!groupId && fabricCanvas) {
+        const groups = fabricCanvas.getObjects("group") as fabric.Group[];
+        for (const grp of groups) {
+          if (grp.contains(target)) {
+            groupId = (grp as any).customId;
+            
+            break;
+          }
+        }
       }
-      let targetGroupCustomId = (target.group as any).customId;
-      // Find a graphic upload that matches the target's customId.
+      
       const matchedUpload = uploadsRef.current.find(
-        (u) => u.type === "graphic" && u.id === targetGroupCustomId
+        (u) => u.type === "graphic" && u.id === groupId
       );
       
       if (!matchedUpload) {
@@ -73,7 +85,7 @@ const FabricEditor: React.FC = () => {
         return;
       }
       
-      const id = targetCustomId || uuidv4();
+      const id = (target as any).customId || uuidv4();
       const value =
         target.type === "i-text"
           ? (target as fabric.IText).text || ""
@@ -118,8 +130,34 @@ const FabricEditor: React.FC = () => {
           return item;
         })
       );
-      getUploadOrderFromCanvas(fabricCanvas)
+      // getUploadOrderFromCanvas(fabricCanvas)
     });
+
+    fabricCanvas.on("object:moving", (e) => {
+      const movingObj = e.target;
+      if (!movingObj) return;
+      
+      const objects = fabricCanvas.getObjects();
+      // Check each object for an overlap with the moving object.
+      for (let i = 0; i < objects.length; i++) {
+        const obj = objects[i];
+        if (obj === movingObj) continue;
+        if (movingObj.intersectsWithObject(obj)) {
+          // Manually reorder: remove movingObj and push it to the end.
+          const index = objects.indexOf(movingObj);
+          if (index > -1) {
+            objects.splice(index, 1);
+            objects.push(movingObj);
+            // Update the canvas display after reordering.
+            fabricCanvas.renderAll();
+          }
+          break; // Once reordered, exit the loop.
+        }
+      }
+      // Update your state order map.
+      getUploadOrderFromCanvas(fabricCanvas);
+    });
+
     return () => {
       fabricCanvas.dispose();
     };
@@ -140,30 +178,48 @@ const FabricEditor: React.FC = () => {
         map[id] = index;
       }
     });
-    
-    setOrderMap(map)
+    setOrderMap(map);
   };
 
   const tagSelectedObject = () => {
     if (!selectedObject || !canvas) return;
+    let newTag: TaggedVariable;
 
-    const svgString = canvas.toSVG();
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgString, "image/svg+xml");
-    const candidates = Array.from(doc.querySelectorAll("text[data-fabricid]")) as SVGGraphicsElement[];
-
-    const index = candidates.findIndex((el) => el.getAttribute("data-fabricid") === selectedObject.id);
-
-    if (index !== -1) {
-      const newTag: TaggedVariable = {
+    if (selectedObject.type === "color") {
+      const { left, top } = selectedObject.object.getBoundingRect();
+      const exists = taggedVariables.find(
+        (v) => v.id === selectedObject.id && v.type === selectedObject.type
+      );
+      
+      if (exists) return;
+      newTag = {
         id: uuidv4(),
         fabricId: selectedObject.id,
         type: selectedObject.type,
+        x: Math.floor(left * 100) / 100,
+        y: Math.floor(top * 100) / 100,
         variableName: "",
-        index
       };
-      setTaggedVariables((prev) => [...prev, newTag]);
+    } else {
+      const svgString = canvas.toSVG();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgString, "image/svg+xml");
+      const candidates = Array.from(doc.querySelectorAll("text[data-fabricid]")) as SVGGraphicsElement[];
+
+      const index = candidates.findIndex((el) => el.getAttribute("data-fabricid") === selectedObject.id);
+
+      if (index !== -1) {
+        newTag = {
+          id: uuidv4(),
+          fabricId: selectedObject.id,
+          type: selectedObject.type,
+          variableName: "",
+          index
+        };
+      }
     }
+    
+    setTaggedVariables((prev) => [...prev, newTag]);
   };
 
   async function loadSVG(url: string, id: any): Promise<fabric.FabricObject> {
@@ -273,23 +329,37 @@ const FabricEditor: React.FC = () => {
 
   const buildExportSchema = (): ExportSchema => {
     const mainGraphic = uploads.find((item) => item.type === "graphic");
+    
     const graphic: Layer = {
-      file: mainGraphic ? mainGraphic.name : "",
+      fileName: mainGraphic ? mainGraphic.name : "",
       x: mainGraphic ? roundTwo(mainGraphic.left) : 0,
       y: mainGraphic ? roundTwo(mainGraphic.top) : 0,
-      width: mainGraphic ? mainGraphic.width : 0,
-      height: mainGraphic ? mainGraphic.height : 0,
-      order: mainGraphic ? orderMap[mainGraphic.id] : 0,
+      order: mainGraphic && mainGraphic.height !== undefined ? orderMap[mainGraphic.id] : 0,
+      ...(mainGraphic?.width !== undefined ? { width: roundTwo(mainGraphic.width) } : {}),
+      ...(mainGraphic?.height !== undefined ? { height: roundTwo(mainGraphic.height) } : {}),
     }
 
-    const tags = taggedVariables.map((tv) => ({
-      id: tv.id.slice(0, 5),
-      fabricId: tv.fabricId.slice(0, 5),
-      type: tv.type,
-      value: tv.type === "text" ? `INSERT_TEXT_HERE` : `INSERT_COLOR_HERE`,
-      index: tv.index,
-      variableName: tv.variableName ?? "",
-    }));
+    const tags = taggedVariables.map((tv) => {
+      const baseTag = {
+        id: tv.id.slice(0, 5),
+        fabricId: tv.fabricId.slice(0, 5),
+        type: tv.type,
+        value: tv.variableName,
+      };
+      
+      if (tv.type === "text") {
+        return {
+          ...baseTag,
+          index: tv.index,
+        };
+      } else {
+        return {
+          ...baseTag,
+          x: tv.x,
+          y: tv.y,
+        };
+      }
+    });
 
     const images = uploads
       .filter(
@@ -300,8 +370,7 @@ const FabricEditor: React.FC = () => {
       )
       .map((item) => {
         const imageLayer: Layer = {
-          variableName: item.variableName,
-          file: item.name,
+          fileName: item.variableName ?? `image_${uploads.indexOf(item)}`,
           x: roundTwo(item.left),
           y: roundTwo(item.top),
           order: orderMap[item.id] ?? 0,
@@ -318,8 +387,35 @@ const FabricEditor: React.FC = () => {
     };
   };
   
-  const exportSchema = buildExportSchema();
-  const exportJson = JSON.stringify(exportSchema, null, 2);
+  async function handleExport(projectId: string) {
+    const schema = buildExportSchema();
+    await setDoc(doc(db, "schemas", projectId || "MyProject"), schema);
+    setSent(true)
+    console.log("Export schema saved to Firestore for project:", projectId);
+  }
+
+  function buildExportUrl(projectId: string, schema: ExportSchema): string {
+    const baseUrl = "https://variable-editor.vercel.app/api" //"http://localhost:3000/api";
+    const params = new URLSearchParams();
+    
+    params.append("projectId", projectId);
+    params.append("graphicName", "graphicName");
+    taggedVariables.forEach((tag) => {
+      if (tag.variableName && tag.variableName.trim()) {
+        params.append(tag.variableName, tag.variableName);
+      }
+    })
+    
+    schema.images.forEach((img) => {
+      if (img.fileName && img.fileName.trim()) {
+        params.append(img.fileName, img.fileName);
+      }
+    });
+    
+    return `${baseUrl}?${params.toString()}`;
+  }
+
+  let fullURL = buildExportUrl(projectId, buildExportSchema());
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
@@ -381,27 +477,18 @@ const FabricEditor: React.FC = () => {
         {/* Display the list of tagged variables */}
         <div className="border border-gray-300 p-4 rounded-lg shadow-md bg-white">
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Tagged Variables</h3>
+          <h2 className="font-semibold text-gray-800 mb-2">(no spaces)</h2>
           {taggedVariables.length === 0 ? (
             <p className="text-gray-500">No variables tagged yet.</p>
           ) : (
             <ul className="space-y-2">
-              {taggedVariables.map((variable) => {
-                // Define a helper function or mapping for background colors
-                const bgColor =
-                  variable.type === "text"
-                    ? "bg-blue-100"
-                    : variable.type === "color"
-                    ? "bg-green-100"
-                    : "bg-gray-100"; // default color
-
-                return (
-                  <TaggedVariableItem
-                    key={(variable.id ?? "") + variable.type}
-                    variable={variable}
-                    updateTaggedVariableName={updateTaggedVariableName}
-                  />
-                );
-              })}
+              {taggedVariables.map((variable) =>
+                <TaggedVariableItem
+                  key={(variable.id ?? "") + variable.type}
+                  variable={variable}
+                  updateTaggedVariableName={updateTaggedVariableName}
+                />
+              )}
             </ul>
           )}
         </div>
@@ -426,7 +513,7 @@ const FabricEditor: React.FC = () => {
       {/* Right Panel: Export URL and Editing Panel */}
       <div
         style={{
-          width: "350px",
+          width: "400px",
           borderLeft: "1px solid #ccc",
           padding: "10px",
           overflowY: "auto",
@@ -440,16 +527,36 @@ const FabricEditor: React.FC = () => {
             borderRadius: "4px",
             wordBreak: "break-all",
             fontFamily: "monospace",
+            fontSize: "14px",
           }}
         >
-          Base URL: http://localhost:3000/generate/
-          <div
-            style={{
-              marginTop: "8px",
-              wordBreak: "break-all"
-            }}
-          >
-            <pre style={{ fontSize: "13px" }}>{exportJson}</pre>
+          Request URL: {fullURL}
+          <br />
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+            <button
+              onClick={() => handleExport(projectId)}
+              style={{
+                padding: "10px 20px",
+                backgroundColor: "#28a745",
+                color: "#fff",
+                border: "none",
+                borderRadius: "5px",
+                cursor: "pointer",
+                fontSize: "16px",
+                transition: "background-color 0.3s ease",
+              }}
+              onMouseOver={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#218838";
+              }}
+              onMouseOut={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#28a745";
+              }}
+            >
+              Save details
+            </button>
+            {sent && (
+              <h3 style={{ margin: 0 }}>Updated!</h3>
+            )}
           </div>
         </div>
 
@@ -465,7 +572,7 @@ const FabricEditor: React.FC = () => {
             }}
           >
             <h4 style={{ marginBottom: "15px" }}>
-              Editing {selectedObject.type === "text" ? "Text" : "Color"}
+              Editing {selectedObject.type === "text" ? "Text" : "Color"} (test below)
             </h4>
             {selectedObject.type === "text" ? (
               <input
@@ -497,14 +604,25 @@ const FabricEditor: React.FC = () => {
             <div style={{ display: "flex", gap: "10px" }}>
               <button
                 onClick={tagSelectedObject}
+                disabled={taggedVariables.some(
+                  (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
+                )}
                 style={{
                   flex: "1",
                   padding: "8px 12px",
-                  backgroundColor: "#0070f3",
+                  backgroundColor: taggedVariables.some(
+                  (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
+                  )
+                  ? "#ccc"
+                  : "#0070f3",
                   color: "#fff",
                   border: "none",
                   borderRadius: "4px",
-                  cursor: "pointer",
+                  cursor: taggedVariables.some(
+                  (tv) => tv.fabricId === selectedObject.id && tv.type === selectedObject.type
+                  )
+                  ? "default"
+                  : "pointer",
                 }}
               >
                 Tag as Variable

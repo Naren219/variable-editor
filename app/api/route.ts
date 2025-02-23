@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 export async function GET(req: Request) {
   const url = new URL(req.url);
 
-  const targetUrl = `http://localhost:3000/generate${url.search}`;
+  const targetUrl = `https://variable-editor.vercel.app/generate${url.search}` // `http://localhost:3000/generate${url.search}`;
 
   try {
     const browser = await chromium.launch({ headless: true });
@@ -13,8 +13,10 @@ export async function GET(req: Request) {
       deviceScaleFactor: 2,
     });
     const page = await context.newPage();
-    await page.goto(targetUrl, { waitUntil: 'networkidle' });
-    const screenshotBuffer = await page.screenshot({ type: 'png' });
+    await page.goto(targetUrl, { waitUntil: 'load', timeout: 30000 });
+    const element = await page.waitForSelector('#finalGraphic', { timeout: 30000 });
+
+    const screenshotBuffer = await element.screenshot({ type: 'png' });
     await browser.close();
     
     return new NextResponse(screenshotBuffer, {

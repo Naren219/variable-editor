@@ -27,13 +27,13 @@ export default function TaggedVariableItem({
       <span className="text-sm text-gray-600">
         <span className="font-semibold">Type:</span> {variable.type}
       </span>
-    <input
-      type="text"
-      placeholder="Variable Name"
-      value={localName}
-      onChange={(e) => setLocalName(e.target.value)}
-      className="w-32"
-    />
+      <input
+        type="text"
+        placeholder="Variable Name"
+        value={localName}
+        onChange={(e) => setLocalName(e.target.value)}
+        className="w-32"
+      />
       <button
         type="button"
         className="p-2 bg-blue-500 text-white rounded"

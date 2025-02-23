@@ -11,16 +11,16 @@ declare global {
     id: string;
     fabricId: string;
     type: "text" | "color";
-    // x: number;
-    // y: number;
-    index: number;
+    x?: number;
+    y?: number;
+    index?: number;
     value?: string;
-    variableName: string;
+    variableName?: string;
   }
   
   interface Layer {
     id?: string;
-    file: string;
+    fileName: string;
     variableName?: string;
     x?: number;  
     y?: number;
