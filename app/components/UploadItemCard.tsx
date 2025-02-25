@@ -1,6 +1,5 @@
 import React from "react";
 import { UploadItem } from "../page";
-import DeleteIcon from '@mui/icons-material/Delete';
 
 
 interface UploadItemProps {
