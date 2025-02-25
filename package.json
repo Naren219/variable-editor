@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npx playwright install"
+    "postinstall": "PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install"
   },
   "dependencies": {
     "canvg": "^4.0.2",
@@ -15,6 +15,7 @@
     "file-saver": "^2.0.5",
     "firebase": "^11.3.1",
     "next": "15.1.6",
+    "playwright": "^1.50.1",
     "react": "^19.0.0",
     "react-colorful": "^5.6.1",
     "react-crud-icons": "^1.2.3",
@@ -23,7 +24,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
-    "@playwright/test": "^1.50.1",
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
