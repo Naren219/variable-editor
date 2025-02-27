@@ -7,7 +7,7 @@
     "build": "next build && npx playwright install",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "npx playwright install"
+    "postinstall": "node ./node_modules/.bin/playwright install"
   },
   "dependencies": {
     "canvg": "^4.0.2",
