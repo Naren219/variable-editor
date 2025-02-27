@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server';
-import * as playwright from 'playwright';
-import chromium from 'chrome-aws-lambda';
+import playwright from 'playwright';
+// import chromium from 'chrome-aws-lambda';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
 
-  const targetUrl = `https://variable-editor.vercel.app/generate${url.search}` // `http://localhost:3000/generate${url.search}`;
+  const localUrl = `http://localhost:3000/generate${url.search}`;
+  let targetUrl = `https://variable-editor.vercel.app/generate${url.search}`
+  // targetUrl = localUrl
 
   try {
+    // const browser = await playwright.chromium.launch({
+    //   args: chromium.args,
+    //   executablePath: await chromium.executablePath,
+    //   headless: chromium.headless,
+    // });
     const browser = await playwright.chromium.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath,
-      headless: chromium.headless,
+      headless: true,
     });
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
