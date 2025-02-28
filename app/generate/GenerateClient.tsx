@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ref, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { handleSVGElementSelection } from "../utils/FindElement";
 
 async function loadSvgFromFirebase(path: string): Promise<string> {
   const storageRef = ref(storage, path);
@@ -83,22 +84,12 @@ const GenerateClient: React.FC = () => {
               candidate.appendChild(doc.createTextNode(tag.value ?? ""));
             }
           } else if (tag.type === "color") {
-            let fillCandidates = Array.from(doc.querySelectorAll("[fill]"));
-            if (fillCandidates.length === 0) {
-              fillCandidates = Array.from(doc.querySelectorAll("path, rect, circle, polygon, polyline"));
-            }
-
-            const candidate = findClosestElement(fillCandidates, tag.x ?? 0, tag.y ?? 0);
-            
-            if (candidate) {
-              if (candidate.hasAttribute("fill")) {
-                candidate.setAttribute("fill", tag.value ?? "");
-              } else if (candidate.getAttribute("style")) {
-                let styleStr = candidate.getAttribute("style") || "";
-                styleStr = styleStr.replace(/fill\s*:\s*[^;]+/, `fill: ${tag.value ?? ""}`);
-                candidate.setAttribute("style", styleStr);
-              }
-            }
+            handleSVGElementSelection(
+              doc,
+              tag.x ?? 0,
+              tag.y ?? 0,
+              tag.value ?? ""
+            );
           }
         });
 
@@ -173,29 +164,6 @@ const GenerateClient: React.FC = () => {
 
     loadAndProcessSVG();
   }, [state]);
-
-  function findClosestElement(
-    candidates: Element[],
-    targetX: number,
-    targetY: number
-  ): Element | null {
-    let closest: Element | null = null;
-    let minDistance = Infinity;
-    candidates.forEach((el) => {
-      const bbox = (el as SVGGraphicsElement).getBBox();
-      const centerX = bbox.x + bbox.width / 2;
-      const centerY = bbox.y + bbox.height / 2;
-      
-      const dx = centerX - targetX;
-      const dy = centerY - targetY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < minDistance) {
-        minDistance = dist;
-        closest = el;
-      }
-    });
-    return closest;
-  }
 
   return (
     <div>

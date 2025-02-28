@@ -121,6 +121,9 @@ const FabricEditor: React.FC = () => {
       setUploads((prevUploads) =>
         prevUploads.map((item) => {
           if (item.id === modId) {
+
+            const normalizedPoint = normalizeCoordinates({x: modifiedObj.left, y: modifiedObj.top}, item.object);
+            console.log('Transformed point for SVG:', normalizedPoint);
             return { 
               ...item, 
               left: roundTwo(modifiedObj.left) || item.left, 
@@ -138,6 +141,46 @@ const FabricEditor: React.FC = () => {
       fabricCanvas.dispose();
     };
   }, []);
+
+  function normalizeCoordinates(fabricPoint: {x: number, y: number}, svgObject: fabric.Object): {x: number, y: number} {
+    // Get dimensions of both canvas and SVG
+    if (!canvasRef.current || !svgObject) return {x: 0, y: 0};
+    const boundingRect = svgObject.getBoundingRect();
+    
+    const canvasWidth = boundingRect.width;
+    const canvasHeight = boundingRect.height;
+    
+    const svgString = svgObject.toSVG();
+    const parser = new DOMParser();
+    const svgDoc = parser.parseFromString(svgString, "image/svg+xml");
+    const svgElement = svgDoc.documentElement;
+
+    // Get the SVG viewBox or dimensions
+    let svgWidth, svgHeight;
+    const viewBox = svgElement.getAttribute('viewBox');
+    console.log(svgElement);
+    
+    if (viewBox) {
+      const [, , width, height] = viewBox.split(' ').map(Number);
+      svgWidth = width;
+      svgHeight = height;
+    } else {
+      svgWidth = parseFloat(svgElement.getAttribute('width') || '0');
+      svgHeight = parseFloat(svgElement.getAttribute('height') || '0');
+    }
+    
+    console.log("SVG Dimensions:", svgWidth, svgHeight);
+    
+    // Calculate scale factors
+    const scaleX = svgWidth / canvasWidth;
+    const scaleY = svgHeight / canvasHeight;
+    
+    // Transform coordinates
+    return {
+      x: fabricPoint.x * scaleX,
+      y: fabricPoint.y * scaleY
+    };
+  }
 
   const roundTwo = (value: number): number => Math.floor(value * 100) / 100;
 
@@ -177,6 +220,8 @@ const FabricEditor: React.FC = () => {
         y: Math.floor(top * 100) / 100,
         variableName: "",
       };
+      console.log(newTag.x, newTag.y);
+      
     } else {
       const svgString = canvas.toSVG();
       const parser = new DOMParser();
@@ -315,7 +360,6 @@ const FabricEditor: React.FC = () => {
 
   const buildExportSchema = (): ExportSchema => {
     const mainGraphic = uploads.find((item) => item.type === "graphic");
-    console.log("width", mainGraphic?.width, "height", mainGraphic?.height);
     
     const graphic: Layer = {
       fileName: mainGraphic ? mainGraphic.name : "",
@@ -325,7 +369,6 @@ const FabricEditor: React.FC = () => {
       ...(mainGraphic?.width !== undefined ? { width: roundTwo(mainGraphic.width) } : {}),
       ...(mainGraphic?.height !== undefined ? { height: roundTwo(mainGraphic.height) } : {}),
     }
-    console.log(graphic);
     
 
     const tags = taggedVariables.map((tv) => {
@@ -390,7 +433,7 @@ const FabricEditor: React.FC = () => {
     const params = new URLSearchParams();
     
     params.append("projectId", projectId);
-    
+    params.append("graphicName", schema.graphic.fileName);
     taggedVariables.forEach((tag) => {
       if (tag.variableName && tag.variableName.trim()) {
         params.append(tag.variableName, tag.variableName);
