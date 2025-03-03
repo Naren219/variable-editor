@@ -1,7 +1,6 @@
 import React from "react";
 import { UploadItem } from "../page";
 
-
 interface UploadItemProps {
   item: UploadItem;
   handleTagAsGraphic: (id: string) => void;

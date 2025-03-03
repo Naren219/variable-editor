@@ -59,8 +59,11 @@ const FabricEditor: React.FC = () => {
         return;
       }
       let target: fabric.Object = e.target;
+      
       if (e.subTargets && e.subTargets.length > 0) {
         target = e.subTargets[0];
+        console.log("Subtarget found:", target);
+        
       }
 
       let groupId: string | undefined = target.group ? (target.group as any).customId : undefined;
@@ -93,6 +96,8 @@ const FabricEditor: React.FC = () => {
           ? (target as fabric.IText).text || ""
           : (target.fill as string) || "";
       
+      // console.log("Selected object:", target);
+      
       setSelectedObject({
         id,
         type: target.type === "i-text" ? "text" : "color",
@@ -122,8 +127,10 @@ const FabricEditor: React.FC = () => {
         prevUploads.map((item) => {
           if (item.id === modId) {
 
-            const normalizedPoint = normalizeCoordinates({x: modifiedObj.left, y: modifiedObj.top}, item.object);
-            console.log('Transformed point for SVG:', normalizedPoint);
+            // const normalizedPoint = normalizeCoordinates({x: modifiedObj.left, y: modifiedObj.top}, item.object);
+            // console.log('Transformed point for SVG:', normalizedPoint);
+            // console.log(roundTwo(effectiveWidth), roundTwo(effectiveHeight));
+            
             return { 
               ...item, 
               left: roundTwo(modifiedObj.left) || item.left, 
@@ -142,6 +149,33 @@ const FabricEditor: React.FC = () => {
     };
   }, []);
 
+  function addDebugMarkers(fabricCanvas: any, svgObject: fabric.Object, testPoints: {x: number, y: number}[]) {
+    // Create visible markers in both systems
+    testPoints.forEach((point, index) => {
+      // Add marker in Fabric.js
+      const fabricMarker = new fabric.Circle({
+        left: point.x,
+        top: point.y,
+        radius: 5,
+        fill: 'red',
+        originX: 'center',
+        originY: 'center'
+      });
+      fabricCanvas.add(fabricMarker);
+      
+      // Add marker in SVG
+      const svgPoint = normalizeCoordinates(point, svgObject);
+      const svgMarker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      svgMarker.setAttribute("cx", svgPoint.x.toString());
+      svgMarker.setAttribute("cy", svgPoint.y.toString());
+      svgMarker.setAttribute("r", "5");
+      svgMarker.setAttribute("fill", "blue");
+      // svgObject.appendChild(svgMarker);
+      
+      console.log(`Point ${index}: Fabric(${point.x}, ${point.y}) -> SVG(${svgPoint.x}, ${svgPoint.y})`);
+    });
+  }
+
   function normalizeCoordinates(fabricPoint: {x: number, y: number}, svgObject: fabric.Object): {x: number, y: number} {
     // Get dimensions of both canvas and SVG
     if (!canvasRef.current || !svgObject) return {x: 0, y: 0};
@@ -158,7 +192,7 @@ const FabricEditor: React.FC = () => {
     // Get the SVG viewBox or dimensions
     let svgWidth, svgHeight;
     const viewBox = svgElement.getAttribute('viewBox');
-    console.log(svgElement);
+    console.log("view box", svgString);
     
     if (viewBox) {
       const [, , width, height] = viewBox.split(' ').map(Number);
@@ -201,6 +235,78 @@ const FabricEditor: React.FC = () => {
     setOrderMap(map)
   };
 
+  function getScaledPosition(
+    clickedPoint: { x: number; y: number },
+    originalDimensions: { width: number; height: number }
+  ): any {
+    const canvasDimensions = { width: 800, height: 600 };
+    const scaleX = originalDimensions.width / canvasDimensions.width;
+    const scaleY = originalDimensions.height / canvasDimensions.height;
+    return {
+      x: clickedPoint.x * scaleX,
+      y: clickedPoint.y * scaleY,
+    };
+  }
+
+  function addMarker(position: { x: number; y: number }) {
+    if (!canvas) return;
+    // Create a small red circle as the marker.
+    const marker = new fabric.Circle({
+      left: position.x - 5, // Offset by radius to center the marker.
+      top: position.y - 5,
+      radius: 5,
+      fill: 'red',
+      selectable: false,  // Prevents the user from selecting/moving the marker.
+      evented: false,     // Excludes it from event handling.
+    });
+    // Optionally, you can add an animation or other styles.
+    canvas.add(marker);
+    canvas.renderAll();
+  }
+
+  interface Dimensions {
+    width: number;
+    height: number;
+  }
+  
+  interface Point {
+    x: number;
+    y: number;
+  }
+  
+  function createMappingFunction(
+    fabricDims: Dimensions,
+    originalDims: Dimensions,
+    refFabric: Point,
+    refOriginal: Point
+  ): (fabricPoint: Point) => Point {
+    // Compute the uniform scale factor.
+    const scale = originalDims.width / fabricDims.width; // 500/400 = 1.25
+    // Compute the offsets using the known reference point pair:
+    //   refOriginal.x = scale * refFabric.x + offsetX, so offsetX = refOriginal.x - scale * refFabric.x
+    const offsetX = refOriginal.x - scale * refFabric.x;
+    const offsetY = refOriginal.y - scale * refFabric.y;
+    // Return a mapping function:
+    return (fabricPoint: Point): Point => ({
+      x: fabricPoint.x * scale + offsetX,
+      y: fabricPoint.y * scale + offsetY,
+    });
+  }
+  
+  // Define your dimensions and reference points.
+  const fabricDims: Dimensions = { width: 400, height: 400 };
+  const originalDims: Dimensions = { width: 800, height: 800 };
+  const refFabric: Point = { x: 297, y: 51 };
+  const refOriginal: Point = { x: 385, y: 77 };
+  
+  // Create the mapping function.
+  const mapFabricToOriginal = createMappingFunction(fabricDims, originalDims, refFabric, refOriginal);
+  
+  // Example usage:
+  // const fabricPoint: Point = { x: 75.75, y: 66.53 };
+  // const originalPoint = mapFabricToOriginal(fabricPoint);
+  // console.log("Mapped point:", originalPoint); // Expected output: { x: 385, y: 77 }
+  
   const tagSelectedObject = () => {
     if (!selectedObject || !canvas) return;
     let newTag: TaggedVariable;
@@ -216,12 +322,16 @@ const FabricEditor: React.FC = () => {
         id: uuidv4(),
         fabricId: selectedObject.id,
         type: selectedObject.type,
-        x: Math.floor(left * 100) / 100,
-        y: Math.floor(top * 100) / 100,
+        x: roundTwo(left),
+        y: roundTwo(top),
         variableName: "",
       };
-      console.log(newTag.x, newTag.y);
+      // console.log("tags", newTag.x, newTag.y);
+      // const {x, y} = getScaledPosition({x: newTag.x ?? 0, y: newTag.y ?? 0}, {width: 500, height: 500})
+      // addMarker({x, y});
+      console.log(selectedObject.object);
       
+      console.log("orig", newTag.x, newTag.y);
     } else {
       const svgString = canvas.toSVG();
       const parser = new DOMParser();
@@ -289,7 +399,7 @@ const FabricEditor: React.FC = () => {
       reader.onload = async (event) => {
         const imgUrl = event.target?.result as string;
         const svg = await loadSVG(imgUrl, id);
-        svg.scaleToWidth(400);
+        // svg.scaleToWidth(400);
         svg.set({
           subTargetCheck: true,
         });
@@ -432,7 +542,7 @@ const FabricEditor: React.FC = () => {
     const baseUrl = "http://localhost:3000/generate";
     const params = new URLSearchParams();
     
-    params.append("projectId", projectId);
+    params.append("projectId", projectId ?? "MyProject");
     params.append("graphicName", schema.graphic.fileName);
     taggedVariables.forEach((tag) => {
       if (tag.variableName && tag.variableName.trim()) {

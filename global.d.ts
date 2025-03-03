@@ -8,8 +8,8 @@ declare global {
   }
 
   interface TaggedVariable {
-    id: string;
-    fabricId: string;
+    id: string; // used to differentiate each tag
+    fabricId: string; // used to differentiate specific text elements in a single SVG
     type: "text" | "color";
     x?: number;
     y?: number;
