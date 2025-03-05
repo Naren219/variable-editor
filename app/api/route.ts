@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import playwright from 'playwright';
-// import chromium from 'chrome-aws-lambda';
+// import playwright from 'playwright';
+import chromium from 'chrome-aws-lambda';
+import { chromium as playwrightChromium } from 'playwright-core';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -10,14 +11,19 @@ export async function GET(req: Request) {
   // targetUrl = localUrl
 
   try {
-    // const browser = await playwright.chromium.launch({
-    //   args: chromium.args,
-    //   executablePath: await chromium.executablePath,
-    //   headless: chromium.headless,
-    // });
-    const browser = await playwright.chromium.launch({
-      headless: true,
+    const executablePath = await chromium.executablePath;
+    if (!executablePath) {
+      throw new Error('Chromium executable not found');
+    }
+
+    const browser = await playwrightChromium.launch({
+      args: chromium.args,
+      executablePath,
+      headless: chromium.headless,
     });
+    // const browser = await playwright.chromium.launch({
+    //   headless: true,
+    // });
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       deviceScaleFactor: 2,

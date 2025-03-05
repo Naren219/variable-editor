@@ -11,11 +11,13 @@
   },
   "dependencies": {
     "canvg": "^4.0.2",
+    "chrome-aws-lambda": "^10.1.0",
     "fabric": "^6.5.4",
     "file-saver": "^2.0.5",
     "firebase": "^11.3.1",
     "next": "15.1.6",
     "playwright": "^1.50.1",
+    "playwright-core": "^1.50.1",
     "react": "^19.0.0",
     "react-colorful": "^5.6.1",
     "react-crud-icons": "^1.2.3",
