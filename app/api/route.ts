@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
     const browser = await playwrightChromium.launch({
       args: chromium.args,
-      executablePath,
+      // executablePath,
       headless: chromium.headless,
     });
     // const browser = await playwright.chromium.launch({
