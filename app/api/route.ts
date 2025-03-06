@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 // import playwright from 'playwright';
-import chromium from 'chrome-aws-lambda';
+// import chromium from 'chrome-aws-lambda';
+import chromium from '@sparticuz/chromium';
 import { chromium as playwrightChromium } from 'playwright-core';
 
 export async function GET(req: Request) {
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
     const browser = await playwrightChromium.launch({
       args: chromium.args,
       // executablePath,
-      headless: chromium.headless,
+      headless: true,
     });
     // const browser = await playwright.chromium.launch({
     //   headless: true,

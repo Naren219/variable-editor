@@ -10,6 +10,7 @@
     "postinstall": "npx playwright install"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^133.0.0",
     "canvg": "^4.0.2",
     "chrome-aws-lambda": "^10.1.0",
     "fabric": "^6.5.4",
