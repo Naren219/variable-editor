@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 import chromium from '@sparticuz/chromium';
 import { chromium as playwrightChromium } from 'playwright-core';
 
+export const maxDuration = 20;
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
 
