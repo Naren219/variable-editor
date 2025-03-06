@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
     const browser = await playwrightChromium.launch({
       args: chromium.args,
-      // executablePath,
+      executablePath: await chromium.executablePath(),
       headless: true,
     });
     // const browser = await playwright.chromium.launch({
