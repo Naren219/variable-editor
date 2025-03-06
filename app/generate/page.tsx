@@ -1,6 +1,4 @@
-// export const dynamic = 'force-dynamic';
-
-import GenerateClient from "./GenerateClient";
+import GenerateClient from "../components/GenerateClient";
 import { Suspense } from "react";
 
 const GeneratePage: React.FC = () => {
