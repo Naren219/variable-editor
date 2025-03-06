@@ -17,6 +17,8 @@ export async function GET(req: Request) {
       throw new Error('Chromium executable not found');
     }
 
+    console.log("Launching browser...");
+
     const browser = await playwrightChromium.launch({
       args: chromium.args,
       executablePath: await chromium.executablePath(),
@@ -25,14 +27,21 @@ export async function GET(req: Request) {
     // const browser = await playwright.chromium.launch({
     //   headless: true,
     // });
+
+    console.log("Browser launched.");
+
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       deviceScaleFactor: 2,
     });
     const page = await context.newPage();
+    console.log("Navigating to target URL...");
     await page.goto(targetUrl, { waitUntil: 'load', timeout: 30000 });
-    const element = await page.waitForSelector('#finalGraphic', { timeout: 30000 });
+    console.log("Page loaded, taking screenshot...");
 
+    const element = await page.waitForSelector('#finalGraphic', { timeout: 30000 });
+    console.log("done waiting!");
+    
     const screenshotBuffer = await element.screenshot({ type: 'png' });
     await browser.close();
     
