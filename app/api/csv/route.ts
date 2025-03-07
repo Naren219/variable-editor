@@ -1,20 +1,19 @@
 import { NextResponse } from 'next/server';
 import { generateImagesFromCSV } from '../../components/generateImagesFromCSV';
 
-export async function GET(req: Request) {
+export async function POST(req: Request) {
   const url = new URL(req.url);
-  const searchParams = url.searchParams;
-  const csvFilePath = searchParams.get('csvFilePath') || 'data.csv';
   
-  searchParams.delete('csvFilePath')
-  const localUrl = `http://localhost:3000/generate?${searchParams.toString()}`;
-  const prodUrl = `https://variable-editor.vercel.app/generate${searchParams.toString()}`;
+  const localUrl = `http://localhost:3000/generate${url.search}`;
+  const prodUrl = `https://variable-editor.vercel.app/generate${url.search}`;
 
   const isLocal = process.env.NODE_ENV === 'development';
   const targetUrl = isLocal ? localUrl : prodUrl;
   
+  const csvData = await req.text();
+  
   try {
-    const imageUrls = await generateImagesFromCSV(csvFilePath, targetUrl);
+    const imageUrls = await generateImagesFromCSV(csvData, targetUrl);
     return NextResponse.json({ imageUrls });
   } catch (err) {
     console.error('CSV: Error generating images:', err);
