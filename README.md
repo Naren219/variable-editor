@@ -1,3 +1,5 @@
+<img width="800" alt="editor view" src="https://github.com/user-attachments/assets/18f288ff-2a48-4df0-a571-2caaa4eef11b" />
+
 ### purpose
 A variable image editor that allows users to import and minimally design a static graphic, then select text, colors, images as variants, allowing for quick customizability.
 
