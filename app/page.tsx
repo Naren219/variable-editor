@@ -45,6 +45,8 @@ const FabricEditor: React.FC = () => {
   }, [uploads]);
 
   useEffect(() => {
+    document.title = "Variable Editor"
+
     if (!canvasRef.current) return;
     const fabricCanvas = new fabric.Canvas(canvasRef.current, {
       width: 800,
@@ -452,9 +454,6 @@ const FabricEditor: React.FC = () => {
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-      <Head>
-        <title>Graphic Editor</title>
-      </Head>
       {/* Sidebar: File List and Upload */}
       <div
         style={{
