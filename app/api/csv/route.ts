@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { generateImagesFromCSV } from '../../components/generateImagesFromCSV';
 
+export const maxDuration = 20;
+
 export async function POST(req: Request) {
   const url = new URL(req.url);
   
