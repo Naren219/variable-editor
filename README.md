@@ -1,4 +1,5 @@
-<img width="800" alt="editor view" src="https://github.com/user-attachments/assets/18f288ff-2a48-4df0-a571-2caaa4eef11b" />
+<img width="800" alt="editor view" src="https://github.com/user-attachments/assets/18f288ff-2a48-4df0-a571-2caaa4eef11b" />\
+quick [demo](https://www.loom.com/share/050e3c8a4ae94727aaf74f4d9f4b10c9?sid=1f0074f6-67f5-4315-9aca-2b097ef144c8)
 
 ### purpose
 A variable image editor that allows users to import and minimally design a static graphic, then select text, colors, images as variants, allowing for quick customizability.
