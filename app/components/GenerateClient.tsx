@@ -22,6 +22,9 @@ const GenerateClient: React.FC = () => {
   const [finalSVG, setFinalSVG] = useState<string>("");
   const [state, setState] = useState<ExportSchema>()
 
+  /**
+   * Modifies value with URL parameter
+   */
   function applyOverrides(
     state: ExportSchema,
     urlParams: { [key: string]: string }
@@ -63,7 +66,7 @@ const GenerateClient: React.FC = () => {
     
     const loadAndProcessSVG = async () => {
       try {
-        const baseSvgContent = await loadSvgFromFirebase(graphicName); // FIREBASE!!
+        const baseSvgContent = await loadSvgFromFirebase(graphicName);
         const parser = new DOMParser();
         const doc = parser.parseFromString(baseSvgContent, "image/svg+xml");
         if (state.graphic.width && state.graphic.height) {
@@ -99,6 +102,7 @@ const GenerateClient: React.FC = () => {
 
           const additionalGroup = doc.createElementNS("http://www.w3.org/2000/svg", "g");
           additionalGroup.setAttribute("id", "additionalImages");
+
           for (const img of layers) {
             const imageSvgContent = await loadSvgFromFirebase(img.fileName);
             const imageDoc = parser.parseFromString(imageSvgContent, "image/svg+xml");

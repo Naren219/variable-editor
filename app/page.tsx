@@ -441,11 +441,11 @@ const FabricEditor: React.FC = () => {
       }
     })
     
-    schema.images.forEach((img) => {
-      if (img.variableName && img.variableName.trim()) {
-        params.append(img.variableName, `${img.variableName}`);
-      }
-    });
+    // schema.images.forEach((img) => {
+    //   if (img.variableName && img.variableName.trim()) {
+    //     params.append(img.variableName, `${img.variableName}`);
+    //   }
+    // });
     
     return `${baseUrl}?${params.toString()}`;
   }

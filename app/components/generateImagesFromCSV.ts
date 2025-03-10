@@ -1,7 +1,7 @@
-import csv from 'csv-parser';
 import { generateImageWithPlaywright } from './generateImage';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { storage } from '../firebase';
+import csv from 'csv-parser';
 import { Readable } from 'stream';
 
 export interface RowData {
@@ -27,11 +27,14 @@ function parseCSVWithCsvParser(csvText: string): Promise<RowData[]> {
 async function generateImageForRow(row: RowData, urlTemplate: string): Promise<string | void> {
   const urlObj = new URL(urlTemplate);
   for (const [key, placeholder] of urlObj.searchParams.entries()) {
+    const imgFile = decodeURIComponent(placeholder)
+    if (key !== 'graphicUrl' && !imgFile.startsWith('images/')) { // don't want to override image paths
       if (row[placeholder] !== undefined) {
         urlObj.searchParams.set(key, row[placeholder]);
       } else if (row[key] !== undefined) {
         urlObj.searchParams.set(key, row[key]);
       }
+    }
   }
   const targetUrl = urlObj.toString();
   
@@ -68,13 +71,13 @@ export async function generateImagesFromCSV(csvData: string, urlTemplate: string
   const rows = await parseCSVWithCsvParser(csvData);
   
   const imageUrls: string[] = [];
-  
+
   for (const row of rows) {
     try {
-      const imageUrl = await generateImageForRow(row, urlTemplate);
+          const imageUrl = await generateImageForRow(row, urlTemplate);
       if (imageUrl) {
         imageUrls.push(imageUrl);
-      }
+        }
     } catch (error) {
       console.error('Error processing row:', row, error);
     }
