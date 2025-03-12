@@ -17,9 +17,15 @@ A variable image editor that allows users to import and minimally design a stati
 `https://variable-editor.vercel.app/api/csv?projectId=projectId&graphicName=graphicName&topleft=topleft&toptag=toptag&topRightImg=topRightImg`\
 pass in CSV data into the body (with variables as headers). returns a list of generated images uploaded in firebase storage.
 
-### todo
-- unwanted color segments shouldn't be accidentally edited (**hard**)
-- editor image placement should match the generation (**hard**)
+### challenges
+#### precise color editing
+potential approaches
+* **computer vision segmentation** - convert SVG into raster image, detect color edges and assign different labels, map these segments onto vector image (could be pretty _hard_)
+* **computer vision flood fill** - consistent segments regardless of the SVG structure
+
+#### matching image placement between fabric.js canvas view and DOM
+potential approaches
+* scale factor so that the image is placed relative to board dimensions
 
 ### reference
 #### modifying specific text elements
